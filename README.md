@@ -48,14 +48,14 @@ Under review.
 # Repository Structure
 
 ```
-models/        Dynamical system models (e.g. Oregonator reaction–diffusion system)
+models/        Dynamical system models (e.g. Oregonator reaction–diffusion system, Lorenz 96, Gauss-Markov)
 
 utils/
   simulation.jl    Simulation utilities
   blocking.jl      Block localisation utilities
   filtering.jl     Particle filtering algorithms
 
-examples/      Example scripts reproducing experiments
+scripts/      Example scripts reproducing experiments
 ```
 
 # Requirements
