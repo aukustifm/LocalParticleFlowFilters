@@ -136,12 +136,9 @@ Np = 128
 κx = BlockIndexing(Nx, S, (8,8))
 κy = BlockIndexing(Ny, S, (8,8))
 
-xe, _, _, _, t = BlockPF(
-    f, g, C, y, Σy, x0,
-    Np,
-    κx, κy,
-    verbose=true
-)
+xe_1, _, _, _, _, t = BlockPF(f, g, C, y, Σy, x0, Np, κx, κy, verbose=true, bpf_type=1)
+xe_2, _, _, _, _, t = BlockPF(f, g, C, y, Σy, x0, Np, κx, κy, verbose=true, bpf_type=2)
+xe_3, _, _, _, _, t = BlockPF(f, g, C, y, Σy, x0, Np, κx, κy, verbose=true, bpf_type=3)
 ```
 
 # Example 2: Lorenz 96
@@ -182,7 +179,7 @@ const θx  = 8.0; # Chaotic regime 8.0   Periodic regime 2.75
 f(x::AbstractArray{Float64}) = lorenz96_RK4(x; θ=θx, Δt=Δt);
 g(x::AbstractArray{Float64}) = Σx; # Standard Brownian motion
 
-# Output equation,  y = h(x) + v(x)
+# Output equation,  y = Cx + v(x)
 C  = sparse(zeros(Nx÷2, Nx)); [C[n, 2n-1] = 1.0 for n in 1:Nx÷2];
 Ny = size(C, 1);
 
