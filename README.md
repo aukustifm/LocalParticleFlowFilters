@@ -80,9 +80,10 @@ Pkg.instantiate()
 
 # Example 1: Reaction-Diffusion example
 
-We estimate the following realisation of the Oregonator model:
-![Example 1 state](res/Oregonator.png)
+We estimate a reaction–diffusion system under the Oregonator dynamics.
+Below are snapshots of a simulated trajectory of the time-discretised stochastic Oregonator dynamics at different time steps 𝑘. The axes represent the spatial coordinates.
 
+![Example 1 state](res/Oregonator.png)
 ```julia
 # LIBRARIES ______________________________
 using LinearAlgebra, JLD2, Dates
@@ -142,7 +143,7 @@ xe_3, _, _, _, _, t = BlockPF(f, g, C, y, Σy, x0, Np, κx, κy, verbose=true, b
 ```
 
 # Example 2: Lorenz 96
-We estimate a 1024-dimensional realisation of the Lorenz 96 model. Below is the Hovmöller diagram of a chaotic attractor (θ = 8) for the first 64 coordinates.
+We estimate a 1024-dimensional Lorenz 96 system. Below is the Hovmöller diagram of a chaotic attractor (θ = 8) for the first 64 coordinates in a simulated trajectory. The initial condition is spatially autocorrelated (with correlation 0.9) and 𝑥 ∼ N(0, 0.01²). The state evolution is discretised with Δ𝑡 = 0.01. The first 100 steps are considered a burn-in period, and are discarded from this plot and subsequent filtering procedures.
 
 ![Example 2 state](res/Lorenz96.png)
 
