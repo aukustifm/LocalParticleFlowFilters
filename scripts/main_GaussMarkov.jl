@@ -3,10 +3,10 @@ import Pkg; Pkg.activate(".")
 # LIBRARIES ______________________________
 using LinearAlgebra, JLD2, Dates, Distributions
 
-include("../utils/simulation.jl");
-include("../utils/blocking.jl");
-include("../models/Normal.jl");
-include("../utils/filtering.jl");
+include("../src/simulation.jl");
+include("../src/blocking.jl");
+include("../src/models.jl");
+include("../src/filtering.jl");
 
 # DEFINITIONS (EXPERIMENT) _____________________________________________________
 K = 50; 
@@ -34,15 +34,6 @@ logssk_vec = [10,8,6,4]
 Nb_diff = length(logssk_vec) # Number of different block sizes (upper bound)
 Ns = 1     # Number of simulations
 
-#ITWDₖ_1 = [zeros(Nb_diff) for _ in 1:Ns]
-#ITWDₖ_2 = [zeros(Nb_diff) for _ in 1:Ns]
-#ITWDₖ_3 = [zeros(Nb_diff) for _ in 1:Ns]
-#ITAEₖ_4 = [zeros(Nx_diff,Nb_diff) for _ in 1:Ns]
-
-#tₖ_1 = [zeros(Nb_diff) for _ in 1:Ns]
-#tₖ_2 = [zeros(Nb_diff) for _ in 1:Ns]
-#tₖ_3 = [zeros(Nb_diff) for _ in 1:Ns]
-#tₖ_4 = [zeros(Nx_diff,Nb_diff) for _ in 1:Ns]
 ## Dynamic parameters (θ)
 θx = generate_stable_matrix(Nx, 10.0)   # convert to dense Matrix{Float64} if you need
 
@@ -62,10 +53,10 @@ C = C[1:2:Nx,:]                    # Observing every other state
 ## AUXILIARY VARIABLES__________________________________________________________
 
 Ny = size(C, 1);
-S  = (Nx,1);  
+S  = (Nx,1);
 
 x0 = randn(Nx); # Initial state for simulation
-    
+
 # ________________________________________
 
 # SCRIPT _________________________________
@@ -84,11 +75,11 @@ F = exp(θx*Δt)
 # Continuous-discrete Kalman filter loop
 println("Obtaining the Kalman filter solution")
 for k = 2:Int(K)
-    
+
     # Prediction step (only process noise affects uncertainty)
     μx[:,k] = f(μx[:,k-1])
     Σopt[k] .= F*Σopt[k-1]*F' .+ Σx^2*I(Nx)
-        
+
     # Kalman gain
     Innovation_covariance = C*Σopt[k]*C' .+ Σy^2*I(Ny)
     Gain = Σopt[k] * C' / Matrix(Innovation_covariance) # Check conjugate gradient (LinearSolvers.jl CG())
@@ -125,7 +116,7 @@ for ns = 1:Ns
         tvec = range(Δt, K*Δt, length=K);
 
         jldsave("./res/MvNormal_Np$(Np)_Nx$(Nx)_ssk$(ssk)_timeseries_ns$(ns).jld2"; xe=(xe_1,xe_2,xe_3), Σx = (Σx_1,Σx_2,Σx_3), Xp=(Xp_1,Xp_2,Xp_3))
-        
+
         WD[:,logssk_id] = [
         wasserstein2(μx[:, end], Σopt[end], xe_1[:, end], Σx_1[end]),
         wasserstein2(μx[:, end], Σopt[end], xe_2[:, end], Matrix(Σx_2[end])),
@@ -200,7 +191,7 @@ begin
         yticks             = [0,2,4],
         yminorticks        = IntervalsBetween(3),
         backgroundcolor = :white; )
-        
+
 
     for i in 1:4
         lines!(eval(Symbol("ax1".*string(i))), xrange, z -> pdf(Normal(μx[nx,end], sqrt(Σopt[end][nx,nx])), z),
@@ -220,14 +211,14 @@ begin
         lines!(eval(Symbol("ax1".*string(i))), xrange, z -> pdf(kde(Xp_marginal[3][i,nx,:]), z),
             label = label_text,
             linewidth=2, color=col_pal[4])
-  
+
     end
     axislegend(ax11, L"\log_2\overline{V}_b = 10"; position = :rt, framevisible = false, labelsize = dc_font, patchsize = (18,8))
     axislegend(ax12, L"\log_2\overline{V}_b = 8"; position = :rt, framevisible = false, labelsize = dc_font, patchsize = (18,8))
     axislegend(ax13, L"\log_2\overline{V}_b = 6"; position = :rt, framevisible = false, labelsize = dc_font, patchsize = (18,8))
     axislegend(ax14, L"\log_2\overline{V}_b = 4"; position = :rt, framevisible = false, labelsize = dc_font, patchsize = (18,8))
 
-   
+
     elems = [LineElement(color=col, linewidth=2) for col in col_pal]
     legend = Legend(ff, elems, ["Kalman filter", "locSIR-std", "locSIR-opt", "locFPF"];
         orientation = :horizontal, labelsize = dc_font)

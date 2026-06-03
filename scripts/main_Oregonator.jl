@@ -3,10 +3,10 @@ import Pkg; Pkg.activate(".")
 # LIBRARIES ____________________________________________________________________
 using LinearAlgebra, JLD2, Dates
 
-include("../utils/simulation.jl");
-include("../utils/blocking.jl");
-include("../models/Oregonator.jl");
-include("../utils/filtering.jl");
+include("../src/simulation.jl");
+include("../src/blocking.jl");
+include("../src/models.jl");
+include("../src/filtering.jl");
 
 # AUXILIARY FUNCTIONS __________________________________________________________
 ⊗(A,B) = kron(sparse(A), B);                # Alias for sparse Kronecker product

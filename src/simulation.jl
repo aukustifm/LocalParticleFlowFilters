@@ -20,8 +20,8 @@ function simulate(f::Function,
                   g::Function,
                   C::SparseMatrixCSC{Float64,Int64},
                   Σy::Float64,
-                  x0::Vector{Float64}, 
-                  K::Integer; 
+                  x0::Vector{Float64},
+                  K::Integer;
                   verbose::Bool=false)
 
     # Auxiliary variables
@@ -29,6 +29,7 @@ function simulate(f::Function,
 
     Ny,Nx = size(C);
     x = Array{Float64}(undef, Nx, K)
+    y = Array{Float64}(undef, Ny, K)
 
     # Simulation loop
     x[:,1] .= x0; 
@@ -36,7 +37,8 @@ function simulate(f::Function,
         x[:,k+1] .= f(view(x,:,k)) .+ g(view(x,:,k)).*randn(Nx)
     end
 
-    y = C*x + Σy.*randn(Ny,K);
+    # Measurement process
+    y .= C*x + Σy.*randn(Ny,K);
 
     # -- --
     return (1:K), x, y

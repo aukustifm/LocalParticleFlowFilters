@@ -3,10 +3,10 @@ import Pkg; Pkg.activate(".")
 # LIBRARIES ______________________________
 using LinearAlgebra, JLD2, Dates, Distributions
 
-include("../utils/simulation.jl");
-include("../utils/blocking.jl");
-include("../models/Lorenz96.jl");
-include("../utils/filtering.jl");
+include("../src/simulation.jl");
+include("../src/blocking.jl");
+include("../src/models.jl");
+include("../src/filtering.jl");
 
 # DEFINITIONS (EXPERIMENT) _____________________________________________________
 const Ktotal = 1099;  # Simulation horizon with initial burn-in 
@@ -15,7 +15,7 @@ const Δt = 0.01;      # Simulation horizon / Discretisation interval
 tvec = Δt:Δt:(Δt*(Ktotal-99))    # Actual time horizon for filtering
 
 xx0 = 16;   # For the covariance matrix of initial condition
-     
+
 # DEFINITIONS (SYSTEM) _________________________________________________________
 Nx = 2^10       # State dimension in univariate domain
 S  = (Nx,1);    # Indexing each coordinate of the state variable with a distinct natural number.
@@ -25,7 +25,7 @@ const θx  = 8.0; # Chaotic regime 8.0   Periodic regime 2.75
 
 ## Noise parameters
 Σx = 1e0 * √(Δt);     # Process noise standard deviation (already multiplied by Δt)
-Σy = 1e0 ; 
+Σy = 1e0 ;
 
 ## Model equations (state/output)
 # State equation [ dx = f(x)dt + g(x)dW ], already in discrete-time
