@@ -230,3 +230,94 @@ function ParticleExactFlux!(du::AbstractMatrix{Float64}, u::AbstractMatrix{Float
         du[:,p]  .= A*u[:, p] .+ (I+2λ*A)*((I+λ*A)*(PCt*y)+A*u0)
     end
 end
+
+"""
+    EnKF((f,g),y,x₀,Σ₀; Q=1,R=1)
+
+Solves a state estimation problem using the *Ensemble Kalman Filter (EnKF)*
+for stochastic linear discrete-time state-space systems
+``` math
+    \\begin{aligned}
+        x_k &= f(x_{k-1})   + |x_{k-1}|*v_k ,\\quad   v_k \\sim \\mathcal{N}(0,Σₓ)) \\\\
+        y_k &= Hx_k         + z_k ,\\quad   z_k \\sim \\mathcal{N}(0,Σᵧ)
+    \\end{aligned}
+```
+with prior distribution \$x_0 \\sim \\mathcal{N}(\\mu_0,\\Sigma_0)\$.
+"""
+function EnKF(f::Function,
+              g::Function,
+              C::SparseMatrixCSC{Float64,Int64},
+              y::Matrix{Float64}, 
+              Σy::Float64,
+              x0::Vector{Float64}, 
+              Np::Integer;
+              init_d::Bool = false,
+              verbose::Bool = false)    
+    
+    # Computes dimensions
+    Ny, K = size(y);                            # Dimension of output vector / Number of measurements
+    Nx = length(x0);                            # Dimension of state vector
+    
+    ## Initialize the state, particle and weight sequences
+    Xp = Array{Float64,2}(undef, Nx, Np);       # Matrix of particles
+    Wp = Array{Float64,2}(undef, Nx, Np);       # Matrix of sampled noise for jittering 
+    μx = Array{Float64,2}(undef, Nx, K);        # Matrix of particle sample-mean
+    diagΣx = Array{Float64,2}(undef, Nx, K); diagΣx[:, 1] .= 0.0       # Matrix of particle sample-mean
+    
+    Xp = repeat(x0, 1, Np); 
+    if init_d  
+        Xp = randn(Nx,Np)
+        diagΣx[:,1] .= 1.0
+    end
+    μx[:,1] = x0; 
+
+    ## PRE-PROCESSING: Auxiliary variables, recycle variables, scaling, etc.
+    C .= C ./ Σy;    # Scales the emission matrix and measurement data 
+    y .= y ./ Σy;    #  so that computations are equivalent to Σy = I
+
+    ## FILTERING LOOP: Iterates over all measurements
+    p = makeProgressBar(K-1, "Filtering (EnKF)): Nx=$(Nx), Np=$(Np), K=$(K))")
+    for k = 2:Int(K); if verbose; next!(p); end;
+        # Prediction step _______________
+        # Samples a new ensemble of particles from the state-transition distribution (Prior)
+        
+        # ---- FORECAST ----
+        ParticleForecast!(Xp, Wp, f, g)   # Sample new ensemble (by propagating w/ dynamics) 
+        # ---- UPDATE ----
+        EnKFupdate!(Xp, view(y,:,k), C)   # Update the particles via the EnKF update step
+        
+        μx[:,k] .= mean(Xp, dims=2)[:];    # Posterior state estimate
+        ## Use COV for the Gaussian case! #Σx[k] = cov(Xp')
+        diagΣx[:,k] = var(Xp, dims=2)
+        
+    end
+
+    # POST-PROCESSING: Cleanup, re-scaling, ...
+    C .= Σy .* C;    # Rescales the emission matrix and measurement data 
+    y .= Σy .* y;    #  back to the original magnitudes
+
+    # -- --
+    return μx, diagΣx, Xp, [p.tinit, p.tsecond, p.tlast]
+end;
+
+function EnKFupdate!(Xp::Matrix{Float64},
+                       y::AbstractArray{Float64},
+                       C::SparseMatrixCSC{Float64,Int64}
+                       )
+    Np = size(Xp,2); 
+    Ny = length(y);
+
+    L = Xp .- mean(Xp, dims=2);             # Covariance (square-root) matrix estimate
+       
+    # Update step ___________________
+    ϵ = randn(Ny,Np);
+    U,Σ,_ = svd(C*L + ϵ); # Σ = Diagonal(Σ);    
+
+    Gain = U'./(Σ.^2); 
+    Gain = Gain * (ϵ - C*Xp .+ y); 
+    Gain = U * Gain; 
+    Gain = (C*L)' * Gain; 
+
+    Xp += L*Gain; 
+
+end
