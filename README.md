@@ -51,6 +51,8 @@ Magalhães, J. A. F., Neto, O. B. L., Harjunkoski, I., & Corona, F.
 *Local ensemble flow filters for large-scale dynamic systems*.  
 Under review.
 
+**For reproducibility, the true state trajectories and observations are available at https://doi.org/10.5281/zenodo.21032518.**
+
 # Repository Structure
 
 ```
