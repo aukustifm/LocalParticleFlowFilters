@@ -89,8 +89,6 @@ for k = 2:Int(K)
     Σopt[k] = (I(Nx) - Gain*C) * Σopt[k] * (I(Nx) - Gain*C)' + Gain*Σy^2*I(Ny)*Gain'
 end
 
-jldsave("./res/MvNormal_Nx$(Nx)_KFsolution.jld2"; x=x, y=y, μx=μx, Σopt=Σopt, θx=θx)
-
 # -- Filtering
 
 Np = 1024;
@@ -113,10 +111,6 @@ for ns = 1:Ns
         xe_2, Σx_2, Xp_2, _, _, t_2 = BlockPF(f, g, C, y, Σy, x0, Np, κx, κy, verbose=true, bpf_type=2)
         xe_3, Σx_3, Xp_3, _, _, t_3 = BlockPF(f, g, C, y, Σy, x0, Np, κx, κy, verbose=true, bpf_type=3)
 
-        tvec = range(Δt, K*Δt, length=K);
-
-        jldsave("./res/MvNormal_Np$(Np)_Nx$(Nx)_ssk$(ssk)_timeseries_ns$(ns).jld2"; xe=(xe_1,xe_2,xe_3), Σx = (Σx_1,Σx_2,Σx_3), Xp=(Xp_1,Xp_2,Xp_3))
-
         WD[:,logssk_id] = [
         wasserstein2(μx[:, end], Σopt[end], xe_1[:, end], Σx_1[end]),
         wasserstein2(μx[:, end], Σopt[end], xe_2[:, end], Matrix(Σx_2[end])),
@@ -130,10 +124,6 @@ for ns = 1:Ns
 
     end
 end
-
-#jldsave("./res/MvNormal_Np$(Np)_Nx$(Nx)_WD.jld2"; results=(μx[end], Σopt[end], Xp_marginal, WD)) 
-#dt = load("./res/MvNormal_Np$(Np)_Nx$(Nx)_WD.jld2") 
-#μx[end], Σopt[end], Xp_marginal, WD = dt["results"]
 
 WDnorm = WD./maximum(WD)
 
@@ -229,6 +219,3 @@ begin
 end
 
 ff
-
-save("./res/MvNormal_Nx1024.png", ff)
-save("./res/MvNormal_Nx1024.pdf", ff)

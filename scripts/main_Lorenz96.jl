@@ -29,7 +29,7 @@ const θx  = 8.0; # Chaotic regime 8.0   Periodic regime 2.75
 
 ## Model equations (state/output)
 # State equation [ dx = f(x)dt + g(x)dW ], already in discrete-time
-f(x::AbstractArray{Float64}) = lorenz96_RK4(x; θ=θx, Δt=Δt);
+f(x::AbstractArray{Float64}) = Lorenz96_RK4(x; θ=θx, Δt=Δt);
 g(x::AbstractArray{Float64}) = Σx; # Standard Brownian motion
 
 # Output equation,  y = h(x) + v(x)
@@ -60,7 +60,7 @@ x = xtotal[:, end-K+1:end]; y = ytotal[:, end-K+1:end]; # Removing  burn-in peri
 x0 .= x[:, 1]
 
 # -- Filtering --
-Np = 512;   # Number of particles
+Np = 256;   # Number of particles
 
 ssk = 2^8                       # Block size (per dimension)
 Sb = (ssk, 1)
@@ -68,12 +68,16 @@ Nb = (S[1]÷Sb[1])*(S[2]÷Sb[2])  # Block count
 κx = BlockIndexing(Nx, S, Sb)
 κy = BlockIndexing(Ny, S, Sb)
 
-xe_1, diagΣx_1, _, _, _, t_1 = BlockPF(f, g, C, y, Σy, x0, Np, κx, κy, verbose=true, bpf_type=1)
-xe_2, diagΣx_2, _, _, _, t_2 = BlockPF(f, g, C, y, Σy, x0, Np, κx, κy, verbose=true, bpf_type=2)
-xe_3, diagΣx_3, _, _, _, t_3 = BlockPF(f, g, C, y, Σy, x0, Np, κx, κy, verbose=true, bpf_type=3)
+xe_1, _, _, _, _, t_1 = BlockPF(f, g, C, y, Σy, x0, Np, κx, κy, verbose=true, bpf_type=1)
+xe_2, _, _, _, _, t_2 = BlockPF(f, g, C, y, Σy, x0, Np, κx, κy, verbose=true, bpf_type=2)
+xe_3, _, _, _, _, t_3 = BlockPF(f, g, C, y, Σy, x0, Np, κx, κy, verbose=true, bpf_type=3)
+xe_4, _, _, _, _, t_4 = BlockPF(f, g, C, y, Σy, x0, Np, κx, κy, verbose=true, bpf_type=4)
+xe_5, _, _, _, _, t_5 = BlockPF(f, g, C, y, Σy, x0, Np, κx, κy, verbose=true, bpf_type=5) # Please first set BLAS.set_num_threads(1) if Julia is already using multiple threads 
+xe_6, _, _, t_6 = EnKF(f, g, C, y, Σy, x0, Np, verbose=true)
 
-#jldsave("./data/Lorenz96_F$(Int(θx))_Np$(Np)_Nx$(Nx)_timeseries_v2.jld2"; x=x, y=y, xe=(xe_1,xe_2,xe_3), diagΣx=(diagΣx_1,diagΣx_2,diagΣx_3))
-
-ITAEₖ_1 = cumsum(Δt * tvec .* sqrt.(mean((xe_1-x).^2,dims=1))[:])
-ITAEₖ_2 = cumsum(Δt * tvec .* sqrt.(mean((xe_2-x).^2,dims=1))[:])
-ITAEₖ_3 = cumsum(Δt * tvec .* sqrt.(mean((xe_3-x).^2,dims=1))[:])
+ITAEₖ_1 = cumsum(Δt*tvec.*(sqrt.(sum((xe_1-x).^2,dims=1))[:]))
+ITAEₖ_2 = cumsum(Δt*tvec.*(sqrt.(sum((xe_2-x).^2,dims=1))[:]))
+ITAEₖ_3 = cumsum(Δt*tvec.*(sqrt.(sum((xe_3-x).^2,dims=1))[:]))
+ITAEₖ_4 = cumsum(Δt*tvec.*(sqrt.(sum((xe_4-x).^2,dims=1))[:]))
+ITAEₖ_5 = cumsum(Δt*tvec.*(sqrt.(sum((xe_5-x).^2,dims=1))[:]))
+ITAEₖ_6 = cumsum(Δt*tvec.*(sqrt.(sum((xe_6-x).^2,dims=1))[:]))

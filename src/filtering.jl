@@ -88,7 +88,7 @@ end;
 
 # PARTICLE OPERATIONS _________________________
 function ParticleResample!(Xp::Matrix{Float64}, ω::Matrix{Float64}, bpf_type::Int64, κx::Matrix{Int64})
-    if bpf_type in (3,4); return; end   # Does not resample if Block Particle Flow
+    if bpf_type in (3,4,5); return; end   # Does not resample if Block Particle Flow
     
     Threads.@threads for b in axes(κx,2);
         Xp[κx[:,b],:] .= Xp[κx[:,b], SystematicResampling(ω[:,b])];
@@ -130,30 +130,39 @@ function ParticlePropagate!(Xp::Matrix{Float64},
         ParticleUpdate!(Xp, Wp, C, y, Σopt)
         ParticleWeightsAux!(dy, z, C, Σopt, κx, κy)
 
-    # Block particle filter w/ optimal importance distribution and particle flow
+    # Block particle filter w/ standard importance distribution and particle flow (feedback particle filter)
     elseif bpf_type == 3
         Xp .= Xp .+ Wp.*randn(size(Xp));
         
         for b in axes(κx,2)
-            #θ_PF = (C[κy[:,b],κx[:,b]]'y[κy[:,b]], C[κy[:,b],κx[:,b]]'C[κy[:,b],κx[:,b]], getindex.(Σopt,[κx[:,b]],[κx[:,b]]))
             θ_PF = (C[κy[:,b],κx[:,b]]'y[κy[:,b]], C[κy[:,b],κx[:,b]])
-            Xp[κx[:,b],:] .= solve(ODEProblem(ParticleFlux!, view(Xp,κx[:,b],:), (0.0,1.0), θ_PF), save_everystep=false)(1.0) #progress=true, 
+            Xp[κx[:,b],:] .= solve(ODEProblem(ParticleFluxStd!, view(Xp,κx[:,b],:), (0.0,1.0), θ_PF), save_everystep=false)(1.0) 
         end
         
+    # Block particle filter w/ optimal importance distribution and particle flow (feedback particle filter)
     elseif bpf_type == 4
+        Xp .= Xp .+ Wp.*randn(size(Xp));
+        
+        for b in axes(κx,2)
+            θ_PF = (C[κy[:,b],κx[:,b]]'y[κy[:,b]], C[κy[:,b],κx[:,b]]'C[κy[:,b],κx[:,b]], getindex.(Σopt,[κx[:,b]],[κx[:,b]]))
+            Xp[κx[:,b],:] .= solve(ODEProblem(ParticleFluxOpt!, view(Xp,κx[:,b],:), (0.0,1.0), θ_PF), save_everystep=false)(1.0) 
+        end
+        
+    # Block particle filter w/ standard importance distribution and particle flow (exact flow filter)
+    elseif bpf_type == 5
         Xp .= Xp .+ Wp.*randn(size(Xp));
         
         PCt = Array{Float64}(undef, Nx, Ny);
         A = Array{Float64}(undef, Nx, Nx); 
         for b in axes(κx,2)    
             θ_PF = (A[κx[:,b],κx[:,b]], y[κy[:,b]], C[κy[:,b],κx[:,b]], PCt[κx[:,b],κy[:,b]])
-            Xp[κx[:,b],:] .= solve(ODEProblem(ParticleExactFlux!, view(Xp,κx[:,b],:), (0.0,1.0), θ_PF), progress=true, save_everystep=false)(1.0) #,
+            Xp[κx[:,b],:] .= solve(ODEProblem(ParticleExactFlux!, view(Xp,κx[:,b],:), (0.0,1.0), θ_PF), save_everystep=false)(1.0) 
         end
     end
 end
 
 function ParticleWeights!(ω::Matrix{Float64}, z::Matrix{Float64}, dy::Matrix{Float64}, bpf_type::Int64, κy::Matrix{Int64})
-    if bpf_type in (3,4); return; end   # Does not resample if Block Particle Flow
+    if bpf_type in (3,4,5); return; end   # Does not resample if Block Particle Flow
 
     Threads.@threads for b in axes(ω,2)
         ω[:,b] = [-dot(dy_b,dy_b) for dy_b in eachcol(view(dy,κy[:,b],:))];         # This is the Gaussian kernel ω = -0.5dy'dy, but using efficient numerics
@@ -200,16 +209,7 @@ function ParticleWeightsAux!(dy::Matrix{Float64}, z::Matrix{Float64}, C::SparseM
     end
 end
 
-function ParticleFlux!(du::AbstractMatrix{Float64}, u::AbstractMatrix{Float64}, p::Tuple{AbstractVector{Float64},SparseMatrixCSC{Float64,Int64}}, λ::Float64)#,Vector{SparseMatrixCSC{Float64,Int64}}
-    #=
-    y,CtC,Σopt = p
-    Σλ = cov(u, dims=2); 
-    e = y .- 0.5*CtC*(u .+ mean(u, dims=2));
-
-    Threads.@threads for p in axes(u,2)
-        du[:,p] .= Σλ*e[:,p] .- Σλ*CtC*Σopt[p]*Σopt[p]'e[:,p]
-    end
-    =#
+function ParticleFluxStd!(du::AbstractMatrix{Float64}, u::AbstractMatrix{Float64}, p::Tuple{AbstractVector{Float64},SparseMatrixCSC{Float64,Int64}}, λ::Float64)#,Vector{SparseMatrixCSC{Float64,Int64}}
     y, C = p
     Σλ = cov(u, dims=2); 
     e = y .- 0.5*C'C*(u .+ mean(u, dims=2));
@@ -217,8 +217,16 @@ function ParticleFlux!(du::AbstractMatrix{Float64}, u::AbstractMatrix{Float64}, 
     Threads.@threads for p in axes(u,2)
         du[:,p] .= Σλ*e[:,p]
     end
+end
 
+function ParticleFluxOpt!(du::AbstractMatrix{Float64}, u::AbstractMatrix{Float64}, p::Tuple{AbstractVector{Float64},SparseMatrixCSC{Float64,Int64},AbstractVector{SparseMatrixCSC{Float64, Int64}}}, λ::Float64)#,Vector{SparseMatrixCSC{Float64,Int64}}
+    y,CtC,Σopt = p
+    Σλ = cov(u, dims=2); 
+    e = y .- 0.5*CtC*(u .+ mean(u, dims=2));
 
+    Threads.@threads for p in axes(u,2)
+        du[:,p] .= Σλ*e[:,p] .- Σλ*CtC*Σopt[p]*Σopt[p]'e[:,p]
+    end
 end
 
 function ParticleExactFlux!(du::AbstractMatrix{Float64}, u::AbstractMatrix{Float64}, p::Tuple{AbstractMatrix{Float64},AbstractVector{Float64},SparseMatrixCSC{Float64,Int64},AbstractMatrix{Float64}}, λ::Float64)
@@ -244,6 +252,7 @@ for stochastic linear discrete-time state-space systems
 ```
 with prior distribution \$x_0 \\sim \\mathcal{N}(\\mu_0,\\Sigma_0)\$.
 """
+
 function EnKF(f::Function,
               g::Function,
               C::SparseMatrixCSC{Float64,Int64},
@@ -267,6 +276,7 @@ function EnKF(f::Function,
     Xp = repeat(x0, 1, Np); 
     if init_d  
         Xp = randn(Nx,Np)
+        #Σx[1] = I(Nx)
         diagΣx[:,1] .= 1.0
     end
     μx[:,1] = x0; 
@@ -278,18 +288,14 @@ function EnKF(f::Function,
     ## FILTERING LOOP: Iterates over all measurements
     p = makeProgressBar(K-1, "Filtering (EnKF)): Nx=$(Nx), Np=$(Np), K=$(K))")
     for k = 2:Int(K); if verbose; next!(p); end;
-        # Prediction step _______________
-        # Samples a new ensemble of particles from the state-transition distribution (Prior)
-        
-        # ---- FORECAST ----
+        # Forecast step ___________________
         ParticleForecast!(Xp, Wp, f, g)   # Sample new ensemble (by propagating w/ dynamics) 
-        # ---- UPDATE ----
+        # Update step ___________________
         EnKFupdate!(Xp, view(y,:,k), C)   # Update the particles via the EnKF update step
         
         μx[:,k] .= mean(Xp, dims=2)[:];    # Posterior state estimate
-        ## Use COV for the Gaussian case! #Σx[k] = cov(Xp')
+        # Σx[k] = cov(Xp') #COV: For the Gaussian case! Mute this otherwise 
         diagΣx[:,k] = var(Xp, dims=2)
-        
     end
 
     # POST-PROCESSING: Cleanup, re-scaling, ...
@@ -299,6 +305,16 @@ function EnKF(f::Function,
     # -- --
     return μx, diagΣx, Xp, [p.tinit, p.tsecond, p.tlast]
 end;
+
+function ParticleForecast!(Xp::Matrix{Float64}, 
+                            Wp::Matrix{Float64}, 
+                            f::Function, 
+                            g::Function)
+    # Pre-computes the noise-matrix and propagates the prior mean                 
+    Wp .= g(Xp);
+    Xp .= f(Xp);
+    Xp .= Xp .+ Wp.*randn(size(Xp));
+end
 
 function EnKFupdate!(Xp::Matrix{Float64},
                        y::AbstractArray{Float64},

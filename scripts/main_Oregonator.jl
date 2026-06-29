@@ -63,12 +63,16 @@ Nb = (S[1]÷Sb[1])*(S[2]÷Sb[2])  # Block count
 xe_1, _, _, _, t_1 = BlockPF(f, g, C, y, Σy, x0, Np, κx, κy, verbose=true, bpf_type=1)
 xe_2, _, _, _, t_2 = BlockPF(f, g, C, y, Σy, x0, Np, κx, κy, verbose=true, bpf_type=2)
 xe_3, _, _, _, t_3 = BlockPF(f, g, C, y, Σy, x0, Np, κx, κy, verbose=true, bpf_type=3)
+xe_4, _, _, _, t_4 = BlockPF(f, g, C, y, Σy, x0, Np, κx, κy, verbose=true, bpf_type=4)
+xe_5, _, _, _, t_5 = BlockPF(f, g, C, y, Σy, x0, Np, κx, κy, verbose=true, bpf_type=5) # Please first set BLAS.set_num_threads(1) if Julia is already using multiple threads 
+xe_6, _, _, t_6 = EnKF(f, g, C, y, Σy, x0, Np, verbose=true)
 
-jldsave("./data/Oregonator_Np$(Np)_Nx$(Nx)_ssk$(ssk).jld2"; elapsed=(tₖ_1[ssk_id], tₖ_2[ssk_id],tₖ_3[ssk_id]), RMSE=(RMSEₖ_1[ssk_id],RMSEₖ_2[ssk_id],RMSEₖ_3[ssk_id]))
-
-# Actual time horizon for filtering
+# Time horizon for filtering
 tvec = range(Δt, K*Δt, length=K) 
 
-ITAEₖ_1 = cumsum(Δt * tvec .* sqrt.(mean((xe_1-x).^2,dims=1))[:])
-ITAEₖ_2 = cumsum(Δt * tvec .* sqrt.(mean((xe_2-x).^2,dims=1))[:])
-ITAEₖ_3 = cumsum(Δt * tvec .* sqrt.(mean((xe_3-x).^2,dims=1))[:])
+ITAEₖ_1 = cumsum(Δt*tvec.*(sqrt.(sum((xe_1-x).^2,dims=1))[:]))
+ITAEₖ_2 = cumsum(Δt*tvec.*(sqrt.(sum((xe_2-x).^2,dims=1))[:]))
+ITAEₖ_3 = cumsum(Δt*tvec.*(sqrt.(sum((xe_3-x).^2,dims=1))[:]))
+ITAEₖ_4 = cumsum(Δt*tvec.*(sqrt.(sum((xe_4-x).^2,dims=1))[:]))
+ITAEₖ_5 = cumsum(Δt*tvec.*(sqrt.(sum((xe_5-x).^2,dims=1))[:]))
+ITAEₖ_6 = cumsum(Δt*tvec.*(sqrt.(sum((xe_6-x).^2,dims=1))[:]))

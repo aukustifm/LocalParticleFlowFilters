@@ -59,10 +59,10 @@ Arguments\n
 """
 @inline function Oregonator_RK4(x::AbstractArray{Float64}; θ::Vector{Float64}, Δt::Real, ∇²::SparseMatrixCSC{Float64,Int64})
     # RK4 steps
-    k1 = Oregonator2(x,              θ, ∇²)
-    k2 = Oregonator2(x .+ k1.*Δt./2, θ, ∇²)
-    k3 = Oregonator2(x .+ k2.*Δt./2, θ, ∇²)
-    k4 = Oregonator2(x .+ k3.*Δt,    θ, ∇²)
+    k1 = Oregonator(x,              θ, ∇²)
+    k2 = Oregonator(x .+ k1.*Δt./2, θ, ∇²)
+    k3 = Oregonator(x .+ k2.*Δt./2, θ, ∇²)
+    k4 = Oregonator(x .+ k3.*Δt,    θ, ∇²)
 
     # Next state
     return x .+ (k1 .+ 2k2 .+ 2k3 .+ k4).*Δt./6;
