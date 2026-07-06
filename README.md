@@ -58,10 +58,11 @@ Under review.
 ```
 models/        Dynamical system models (e.g. Oregonator reaction–diffusion system, Lorenz 96, Gauss-Markov)
 
-utils/
+src/
   simulation.jl    Simulation utilities
   blocking.jl      Block localisation utilities
   filtering.jl     Particle filtering algorithms
+  models.jl        Dynamical models 
 
 scripts/      Example scripts reproducing experiments
 ```
